@@ -28,7 +28,7 @@ export const accessTokenOptions: ITokenOptions = {
   httpOnly: true,
   sameSite: "lax",
   //   secure: true,
-};
+}; 
 
 export const refreshTokenOptions: ITokenOptions = {
   expires: new Date(Date.now() + refreshTokenExpire * 24 * 60 * 60 * 1000),
@@ -38,7 +38,7 @@ export const refreshTokenOptions: ITokenOptions = {
   //   secure: true,
 };
 // ***
-export const sendToken = (user: IUser, statusCode: number, res: Response) => {
+export const sendToken = (user: IUser, statusCode: number, res: Response) => { 
   const accessToken = user.SignAccessToken();
   const refreshToken = user.SignRefreshToken();
   // upload session to redis
@@ -61,3 +61,4 @@ export const sendToken = (user: IUser, statusCode: number, res: Response) => {
     refreshToken,
   });
 };
+

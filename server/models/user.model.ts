@@ -13,10 +13,10 @@ export interface IUser extends Document {
     public_id: string;
     url: string;
   };
-  role: string;
+  role: string;  
   isVerified: boolean;
   courses: Array<{ courseId: string }>;
-  comparePassword: (password: string) => Promise<boolean>;
+  comparePassword: (password: string) => Promise<boolean>; 
   SignAccessToken: () => string;
   SignRefreshToken: () => string;
 }

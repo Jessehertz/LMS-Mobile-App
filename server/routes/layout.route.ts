@@ -9,5 +9,4 @@ layoutRouter.put("/edit-layout", isAutheticated,authorizeRoles("admin"), editLay
 
 layoutRouter.get("/get-layout/:type",getLayoutByType);
 
-
 export default layoutRouter;
