@@ -1,6 +1,6 @@
 import { Response } from "express";
 import CourseModel from "../models/course.model";
-import { CatchAsyncError } from "../middleware/catchAsyncError";
+import { CatchAsyncError } from "../middleware/catchAsyncErrors";
 
 // create course
 export const createCourse = CatchAsyncError(async(data:any,res:Response)=>{
@@ -20,3 +20,4 @@ export const getAllCoursesService = async (res: Response) => {
       courses,
     });
   };
+  

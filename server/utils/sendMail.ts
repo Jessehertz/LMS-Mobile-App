@@ -40,3 +40,4 @@ const sendMail = async (options: EmailOptions):Promise <void> => {
 };
 
 export default sendMail;
+
