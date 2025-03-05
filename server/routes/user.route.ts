@@ -8,7 +8,6 @@ import {
   logoutUser,
   registrationUser,
   socialAuth,
-  updateAccessToken,
   updatePassword,
   updateProfilePicture,
   updateUserInfo,
@@ -23,15 +22,13 @@ userRouter.post("/activate-user", activateUser);
 
 userRouter.post("/login", loginUser);
 
-userRouter.get("/logout", isAutheticated, logoutUser);
-
-userRouter.get("/refresh", updateAccessToken);
+userRouter.get("/logout",isAutheticated, logoutUser);
 
 userRouter.get("/me", isAutheticated, getUserInfo);
 
 userRouter.post("/social-auth", socialAuth);
 
-userRouter.put("/update-user-info", isAutheticated, updateUserInfo);
+userRouter.put("/update-user-info",isAutheticated, updateUserInfo);
 
 userRouter.put("/update-user-password", isAutheticated, updatePassword);
 
@@ -43,6 +40,7 @@ userRouter.get(
   authorizeRoles("admin"),
   getAllUsers
 );
+
 userRouter.put(
   "/update-user",
   isAutheticated,
@@ -56,6 +54,5 @@ userRouter.delete(
   authorizeRoles("admin"),
   deleteUser
 );
-
 
 export default userRouter;

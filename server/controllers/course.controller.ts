@@ -1,15 +1,16 @@
 import { NextFunction, Request, Response } from "express";
-import { CatchAsyncError } from "../middleware/catchAsyncError";
+import { CatchAsyncError } from "../middleware/catchAsyncErrors";
 import ErrorHandler from "../utils/ErrorHandler";
 import cloudinary from "cloudinary";
 import { createCourse, getAllCoursesService } from "../services/course.service";
-import CourseModel from "../models/course.model";
+import CourseModel, { IComment } from "../models/course.model";
 import { redis } from "../utils/redis";
 import mongoose from "mongoose";
 import path from "path";
 import ejs from "ejs";
 import sendMail from "../utils/sendMail";
 import NotificationModel from "../models/notification.Model";
+import axios from "axios";
 
 // upload course
 export const uploadCourse = CatchAsyncError(
@@ -34,7 +35,7 @@ export const uploadCourse = CatchAsyncError(
   }
 );
 
-// edit course **
+// edit course
 export const editCourse = CatchAsyncError(
   async (req: Request, res: Response, next: NextFunction) => {
     try {
@@ -44,9 +45,9 @@ export const editCourse = CatchAsyncError(
 
       const courseId = req.params.id;
 
-      const courseData = (await CourseModel.findById(courseId)) as any;
+      const courseData = await CourseModel.findById(courseId) as any;
 
-      if (thumbnail) {
+      if (thumbnail && !thumbnail.startsWith("https")) {
         await cloudinary.v2.uploader.destroy(courseData.thumbnail.public_id);
 
         const myCloud = await cloudinary.v2.uploader.upload(thumbnail, {
@@ -59,12 +60,12 @@ export const editCourse = CatchAsyncError(
         };
       }
 
-      // if (thumbnail.startsWith("https")) {
-      //   data.thumbnail = {
-      //     public_id: courseData?.thumbnail.public_id,
-      //     url: courseData?.thumbnail.url,
-      //   };
-      // }
+      if (thumbnail.startsWith("https")) {
+        data.thumbnail = {
+          public_id: courseData?.thumbnail.public_id,
+          url: courseData?.thumbnail.url,
+        };
+      }
 
       const course = await CourseModel.findByIdAndUpdate(
         courseId,
@@ -103,7 +104,7 @@ export const getSingleCourse = CatchAsyncError(
           "-courseData.videoUrl -courseData.suggestion -courseData.questions -courseData.links"
         );
 
-        await redis.set(courseId, JSON.stringify(course), "EX", 604800);
+        await redis.set(courseId, JSON.stringify(course), "EX", 604800); // 7days
 
         res.status(200).json({
           success: true,
@@ -172,12 +173,11 @@ interface IAddQuestionData {
   contentId: string;
 }
 
-// ***
 export const addQuestion = CatchAsyncError(
   async (req: Request, res: Response, next: NextFunction) => {
     try {
       const { question, courseId, contentId }: IAddQuestionData = req.body;
-
+      
       const course = await CourseModel.findById(courseId);
 
       if (!mongoose.Types.ObjectId.isValid(contentId)) {
@@ -272,11 +272,11 @@ export const addAnwser = CatchAsyncError(
 
       if (req.user?._id === question.user._id) {
         // create a notification
-        // await NotificationModel.create({
-        //   user: req.user?._id,
-        //   title: "New Question Reply Received",
-        //   message: `You have a new question reply in ${couseContent.title}`,
-        // });
+        await NotificationModel.create({
+          user: req.user?._id,
+          title: "New Question Reply Received",
+          message: `You have a new question reply in ${couseContent.title}`,
+        });
       } else {
         const data = {
           name: question.user.name,
@@ -316,7 +316,7 @@ interface IAddReviewData {
   rating: number;
   userId: string;
 }
-//*** */
+
 export const addReview = CatchAsyncError(
   async (req: Request, res: Response, next: NextFunction) => {
     try {
@@ -354,19 +354,20 @@ export const addReview = CatchAsyncError(
       });
 
       if (course) {
-        course.ratings = avg / course.reviews.length;
+        course.ratings = avg / course.reviews.length; // one example we have 2 reviews one is 5 another one is 4 so math working like this = 9 / 2  = 4.5 ratings
       }
 
       await course?.save();
 
       await redis.set(courseId, JSON.stringify(course), "EX", 604800); // 7days
 
-      //create notification
+      // create notification
       await NotificationModel.create({
         user: req.user?._id,
         title: "New Review Received",
         message: `${req.user?.name} has given a review in ${course?.name}`,
       });
+
 
       res.status(200).json({
         success: true,
@@ -384,7 +385,6 @@ interface IAddReviewData {
   courseId: string;
   reviewId: string;
 }
-
 export const addReplyToReview = CatchAsyncError(
   async (req: Request, res: Response, next: NextFunction) => {
     try {
@@ -416,7 +416,7 @@ export const addReplyToReview = CatchAsyncError(
       }
 
       review.commentReplies?.push(replyData);
-
+      
       await course?.save();
 
       await redis.set(courseId, JSON.stringify(course), "EX", 604800); // 7days
@@ -462,6 +462,29 @@ export const deleteCourse = CatchAsyncError(
         success: true,
         message: "course deleted successfully",
       });
+    } catch (error: any) {
+      return next(new ErrorHandler(error.message, 400));
+    }
+  }
+);
+
+// generate video url
+export const generateVideoUrl = CatchAsyncError(
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { videoId } = req.body;
+      const response = await axios.post(
+        `https://dev.vdocipher.com/api/videos/${videoId}/otp`,
+        { ttl: 300 },
+        {
+          headers: {
+            Accept: "application/json",
+            "Content-Type": "application/json",
+            Authorization: `Apisecret ${process.env.VDOCIPHER_API_SECRET}`,
+          },
+        }
+      );
+      res.json(response.data);
     } catch (error: any) {
       return next(new ErrorHandler(error.message, 400));
     }

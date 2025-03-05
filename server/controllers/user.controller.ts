@@ -2,16 +2,12 @@ require("dotenv").config();
 import e, { Request, Response, NextFunction } from "express";
 import userModel, { IUser } from "../models/user.model";
 import ErrorHandler from "../utils/ErrorHandler";
-import { CatchAsyncError } from "../middleware/catchAsyncError";
+import { CatchAsyncError } from "../middleware/catchAsyncErrors";
 import jwt, { JwtPayload, Secret } from "jsonwebtoken";
 import ejs from "ejs";
 import path from "path";
 import sendMail from "../utils/sendMail";
-import {
-  accessTokenOptions,
-  refreshTokenOptions,
-  sendToken,
-} from "../utils/jwt";
+import { sendToken } from "../utils/jwt";
 import { redis } from "../utils/redis";
 import {
   getAllUsersService,
@@ -19,6 +15,7 @@ import {
   updateUserRoleService,
 } from "../services/user.service";
 import cloudinary from "cloudinary";
+
 // register user
 interface IRegistrationBody {
   name: string;
@@ -139,6 +136,7 @@ export const activateUser = CatchAsyncError(
     }
   }
 );
+
 // Login user
 interface ILoginRequest {
   email: string;
@@ -149,6 +147,7 @@ export const loginUser = CatchAsyncError(
   async (req: Request, res: Response, next: NextFunction) => {
     try {
       const { email, password } = req.body as ILoginRequest;
+      console.log(email, password);
       if (!email || !password) {
         return next(new ErrorHandler("Please enter email and password", 400));
       }
@@ -183,7 +182,6 @@ export const logoutUser = CatchAsyncError(
         message: "Logged out successfully",
       });
     } catch (error: any) {
-      console.log("Logout error:", error);
       return next(new ErrorHandler(error.message, 400));
     }
   }
@@ -213,29 +211,9 @@ export const updateAccessToken = CatchAsyncError(
 
       const user = JSON.parse(session);
 
-      const accessToken = jwt.sign(
-        { id: user._id },
-        process.env.ACCESS_TOKEN as string,
-        { expiresIn: "5m" }
-      );
-
-      const refreshToken = jwt.sign(
-        { id: user._id },
-        process.env.REFRESH_TOKEN as string,
-        { expiresIn: "3d" }
-      );
-
       req.user = user;
 
-      res.cookie("access_token", accessToken, accessTokenOptions);
-      res.cookie("refresh_token", refreshToken, refreshTokenOptions);
-
-      res.status(200).json({
-        status: "sucesss",
-        accessToken,
-      });
-
-      await redis.set(user._id, JSON.stringify(user), "EX", 604800);
+      await redis.set(user._id, JSON.stringify(user), "EX", 604800); // 7days
 
       return next();
     } catch (error: any) {
@@ -249,11 +227,7 @@ export const getUserInfo = CatchAsyncError(
   async (req: Request, res: Response, next: NextFunction) => {
     try {
       const userId = req.user?._id;
-      if (typeof userId === "string") {
-        getUserById(userId, res);
-      } else {
-        return next(new ErrorHandler("User ID is not valid", 400));
-      }
+      getUserById(userId, res);
     } catch (error: any) {
       return next(new ErrorHandler(error.message, 400));
     }
@@ -371,7 +345,7 @@ export const updateProfilePicture = CatchAsyncError(
 
       const userId = req.user?._id;
 
-      const user = await userModel.findById(userId);
+      const user = await userModel.findById(userId).select("+password");
 
       if (avatar && user) {
         // if user have one avatar then call this if
@@ -398,7 +372,6 @@ export const updateProfilePicture = CatchAsyncError(
           };
         }
       }
-      console.log(user?.avatar);
 
       await user?.save();
 
